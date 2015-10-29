@@ -1,9 +1,11 @@
-using Xunit;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlNamedNodeMapTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
-    public static class RemoveNamedItemTests 
+    public static class RemoveNamedItemTests
     {
         [Fact]
         public static void NamedItemDoesNotExist()
@@ -79,7 +81,7 @@ namespace XmlDocumentTests.XmlNamedNodeMapTests
             xmlDocument.LoadXml(xml);
 
             var nodeMap = xmlDocument.DocumentElement.Attributes;
-            var count= nodeMap.Count;
+            var count = nodeMap.Count;
             var node = nodeMap.RemoveNamedItem("att2", "ns6");
 
             Assert.Null(node);

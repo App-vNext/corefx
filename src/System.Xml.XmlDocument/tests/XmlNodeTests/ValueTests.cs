@@ -1,12 +1,13 @@
-using Xunit;
-using System;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlNodeTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
     public static class ValueTests
     {
-        /*[Fact] TODO*/
+        [Fact]
         public static void OnDocumentNode()
         {
             var xmlDocument = new XmlDocument();
@@ -27,7 +28,7 @@ namespace XmlDocumentTests.XmlNodeTests
             Assert.Equal("test", attribute.Value);
         }
 
-        /*[Fact] TODO*/
+        [Fact]
         public static void ElementWithNoDescendents()
         {
             var xmlDocument = new XmlDocument();
@@ -37,7 +38,7 @@ namespace XmlDocumentTests.XmlNodeTests
             Assert.Throws<InvalidOperationException>(() => node.Value = "new value");
         }
 
-        /*[Fact] TODO*/
+        [Fact]
         public static void ElementWithDescendents()
         {
             var xmlDocument = new XmlDocument();
@@ -127,7 +128,7 @@ namespace XmlDocumentTests.XmlNodeTests
             Assert.Equal("new comment", commentNode.Value);
         }
 
-        /*[Fact] TODO*/
+        [Fact]
         public static void DocumentFragment()
         {
             var xmlDocument = new XmlDocument();
@@ -136,7 +137,5 @@ namespace XmlDocumentTests.XmlNodeTests
             Assert.Null(node.Value);
             Assert.Throws<InvalidOperationException>(() => node.Value = "some value");
         }
-
-
     }
 }

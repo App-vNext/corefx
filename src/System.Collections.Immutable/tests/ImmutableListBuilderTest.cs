@@ -1,12 +1,12 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Xunit;
 
-namespace System.Collections.Immutable.Test
+namespace System.Collections.Immutable.Tests
 {
     public class ImmutableListBuilderTest : ImmutableListTestBase
     {
@@ -259,6 +259,7 @@ namespace System.Collections.Immutable.Test
             IndexOfTests.LastIndexOfTest(
                 seq => ImmutableList.CreateRange(seq).ToBuilder(),
                 (b, v) => b.LastIndexOf(v),
+                (b, v, eq) => b.LastIndexOf(v, b.Count > 0 ? b.Count - 1 : 0, b.Count, eq),
                 (b, v, i) => b.LastIndexOf(v, i),
                 (b, v, i, c) => b.LastIndexOf(v, i, c),
                 (b, v, i, c, eq) => b.LastIndexOf(v, i, c, eq));
@@ -297,6 +298,40 @@ namespace System.Collections.Immutable.Test
             Assert.Equal(new[] { 9, 8 }, list.Cast<int>().ToArray());
             list.Clear();
             Assert.Equal(0, list.Count);
+        }
+
+        [Fact]
+        public void IList_Remove_NullArgument()
+        {
+            this.AssertIListBaseline(RemoveFunc, 1, null);
+            this.AssertIListBaseline(RemoveFunc, "item", null);
+            this.AssertIListBaseline(RemoveFunc, new int?(1), null);
+            this.AssertIListBaseline(RemoveFunc, new int?(), null);
+        }
+
+        [Fact]
+        public void IList_Remove_ArgTypeMismatch()
+        {
+            this.AssertIListBaseline(RemoveFunc, "first item", new object());
+            this.AssertIListBaseline(RemoveFunc, 1, 1.0);
+
+            this.AssertIListBaseline(RemoveFunc, new int?(1), 1);
+            this.AssertIListBaseline(RemoveFunc, new int?(1), new int?(1));
+            this.AssertIListBaseline(RemoveFunc, new int?(1), string.Empty);
+        }
+
+        [Fact]
+        public void IList_Remove_EqualsOverride()
+        {
+            this.AssertIListBaseline(RemoveFunc, new ProgrammaticEquals(v => v is string), "foo");
+            this.AssertIListBaseline(RemoveFunc, new ProgrammaticEquals(v => v is string), 3);
+        }
+
+        [Fact]
+        public void DebuggerAttributesValid()
+        {
+            DebuggerAttributes.ValidateDebuggerDisplayReferences(ImmutableList.CreateBuilder<int>());
+            DebuggerAttributes.ValidateDebuggerTypeProxyProperties(ImmutableList.CreateBuilder<string>());
         }
 
         protected override IEnumerable<T> GetEnumerableOf<T>(params T[] contents)

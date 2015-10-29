@@ -1,8 +1,9 @@
-using Xunit;
-using System;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlDocumentTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
     public class ImportNodeTests
     {
@@ -15,7 +16,7 @@ namespace XmlDocumentTests.XmlDocumentTests
             Assert.Throws<InvalidOperationException>(() => xmlDocument.ImportNode(null, true));
         }
 
-        /*[Fact]* TODO*/
+        [Fact]
         public static void ImportDocumentNode()
         {
             var xmlDocument = new XmlDocument();

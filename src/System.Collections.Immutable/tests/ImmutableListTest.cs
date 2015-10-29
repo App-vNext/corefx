@@ -1,14 +1,12 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
 using System.Linq;
 using Xunit;
 
-namespace System.Collections.Immutable.Test
+namespace System.Collections.Immutable.Tests
 {
     public class ImmutableListTest : ImmutableListTestBase
     {
@@ -31,7 +29,7 @@ namespace System.Collections.Immutable.Test
             var actual = ImmutableList<int>.Empty;
 
             int seed = (int)DateTime.Now.Ticks;
-            Console.WriteLine("Using random seed {0}", seed);
+            Debug.WriteLine("Using random seed {0}", seed);
             var random = new Random(seed);
 
             for (int iOp = 0; iOp < operationCount; iOp++)
@@ -40,48 +38,54 @@ namespace System.Collections.Immutable.Test
                 {
                     case Operation.Add:
                         int value = random.Next();
-                        Console.WriteLine("Adding \"{0}\" to the list.", value);
+                        Debug.WriteLine("Adding \"{0}\" to the list.", value);
                         expected.Add(value);
                         actual = actual.Add(value);
+                        VerifyBalanced(actual);
                         break;
                     case Operation.AddRange:
                         int inputLength = random.Next(100);
                         int[] values = Enumerable.Range(0, inputLength).Select(i => random.Next()).ToArray();
-                        Console.WriteLine("Adding {0} elements to the list.", inputLength);
+                        Debug.WriteLine("Adding {0} elements to the list.", inputLength);
                         expected.AddRange(values);
                         actual = actual.AddRange(values);
+                        VerifyBalanced(actual);
                         break;
                     case Operation.Insert:
                         int position = random.Next(expected.Count + 1);
                         value = random.Next();
-                        Console.WriteLine("Adding \"{0}\" to position {1} in the list.", value, position);
+                        Debug.WriteLine("Adding \"{0}\" to position {1} in the list.", value, position);
                         expected.Insert(position, value);
                         actual = actual.Insert(position, value);
+                        VerifyBalanced(actual);
                         break;
                     case Operation.InsertRange:
                         inputLength = random.Next(100);
                         values = Enumerable.Range(0, inputLength).Select(i => random.Next()).ToArray();
                         position = random.Next(expected.Count + 1);
-                        Console.WriteLine("Adding {0} elements to position {1} in the list.", inputLength, position);
+                        Debug.WriteLine("Adding {0} elements to position {1} in the list.", inputLength, position);
                         expected.InsertRange(position, values);
                         actual = actual.InsertRange(position, values);
+                        VerifyBalanced(actual);
                         break;
                     case Operation.RemoveAt:
                         if (expected.Count > 0)
                         {
                             position = random.Next(expected.Count);
-                            Console.WriteLine("Removing element at position {0} from the list.", position);
+                            Debug.WriteLine("Removing element at position {0} from the list.", position);
                             expected.RemoveAt(position);
                             actual = actual.RemoveAt(position);
+                            VerifyBalanced(actual);
                         }
 
                         break;
                     case Operation.RemoveRange:
                         position = random.Next(expected.Count);
                         inputLength = random.Next(expected.Count - position);
-                        Console.WriteLine("Removing {0} elements starting at position {1} from the list.", inputLength, position);
+                        Debug.WriteLine("Removing {0} elements starting at position {1} from the list.", inputLength, position);
                         expected.RemoveRange(position, inputLength);
                         actual = actual.RemoveRange(position, inputLength);
+                        VerifyBalanced(actual);
                         break;
                 }
 
@@ -129,6 +133,18 @@ namespace System.Collections.Immutable.Test
         }
 
         [Fact]
+        public void AddRangeTest()
+        {
+            var list = ImmutableList<int>.Empty;
+            list = list.AddRange(new[] { 1, 2, 3 });
+            list = list.AddRange(Enumerable.Range(4, 2));
+            list = list.AddRange(ImmutableList<int>.Empty.AddRange(new[] { 6, 7, 8 }));
+            list = list.AddRange(new int[0]);
+            list = list.AddRange(ImmutableList<int>.Empty.AddRange(Enumerable.Range(9, 1000)));
+            Assert.Equal(Enumerable.Range(1, 1008), list);
+        }
+
+        [Fact]
         public void AddRangeOptimizationsTest()
         {
             // All these optimizations are tested based on filling an empty list.
@@ -144,6 +160,71 @@ namespace System.Collections.Immutable.Test
             // Adding a Builder instance to an empty list should be seen through.
             var builderOfNonEmptyListDefaultComparer = nonEmptyListDefaultComparer.ToBuilder();
             Assert.Same(nonEmptyListDefaultComparer, emptyList.AddRange(builderOfNonEmptyListDefaultComparer));
+        }
+
+        [Fact]
+        public void AddRangeBalanceTest()
+        {
+            int randSeed = (int)DateTime.Now.Ticks;
+            Debug.WriteLine("Random seed: {0}", randSeed);
+            var random = new Random(randSeed);
+
+            int expectedTotalSize = 0;
+
+            var list = ImmutableList<int>.Empty;
+
+            // Add some small batches, verifying balance after each
+            for (int i = 0; i < 128; i++)
+            {
+                int batchSize = random.Next(32);
+                Debug.WriteLine("Adding {0} elements to the list", batchSize);
+                list = list.AddRange(Enumerable.Range(expectedTotalSize + 1, batchSize));
+                VerifyBalanced(list);
+                expectedTotalSize += batchSize;
+            }
+
+            // Add a single large batch to the end
+            int largeBatchSize = random.Next(32768) + 32768;
+            Debug.WriteLine("Adding {0} elements to the list", largeBatchSize);
+            list = list.AddRange(Enumerable.Range(expectedTotalSize + 1, largeBatchSize));
+            VerifyBalanced(list);
+            expectedTotalSize += largeBatchSize;
+
+            Assert.Equal(Enumerable.Range(1, expectedTotalSize), list);
+
+            list.Root.VerifyHeightIsWithinTolerance();
+        }
+
+        [Fact]
+        public void InsertRangeRandomBalanceTest()
+        {
+            int randSeed = (int)DateTime.Now.Ticks;
+            Debug.WriteLine("Random seed: {0}", randSeed);
+            var random = new Random(randSeed);
+
+            var immutableList = ImmutableList.CreateBuilder<int>();
+            var list = new List<int>();
+
+            const int maxBatchSize = 32;
+            int valueCounter = 0;
+            for (int i = 0; i < 24; i++)
+            {
+                int startPosition = random.Next(list.Count + 1);
+                int length = random.Next(maxBatchSize + 1);
+                int[] values = new int[length];
+                for (int j = 0; j < length; j++)
+                {
+                    values[j] = ++valueCounter;
+                }
+
+                immutableList.InsertRange(startPosition, values);
+                list.InsertRange(startPosition, values);
+
+                Assert.Equal(list, immutableList);
+                immutableList.Root.VerifyBalanced();
+            }
+
+            immutableList.Root.VerifyHeightIsWithinTolerance();
         }
 
         [Fact]
@@ -171,6 +252,17 @@ namespace System.Collections.Immutable.Test
         }
 
         [Fact]
+        public void InsertBalanceTest()
+        {
+            var list = ImmutableList.Create(1);
+
+            list = list.Insert(0, 2);
+            list = list.Insert(1, 3);
+
+            VerifyBalanced(list);
+        }
+
+        [Fact]
         public void InsertRangeTest()
         {
             var list = ImmutableList<int>.Empty;
@@ -184,6 +276,24 @@ namespace System.Collections.Immutable.Test
 
             Assert.Throws<ArgumentOutOfRangeException>(() => list.InsertRange(6, new[] { 1 }));
             Assert.Throws<ArgumentOutOfRangeException>(() => list.InsertRange(-1, new[] { 1 }));
+        }
+
+        [Fact]
+        public void InsertRangeImmutableTest()
+        {
+            var list = ImmutableList<int>.Empty;
+            var nonEmptyList = ImmutableList.Create(1);
+            Assert.Throws<ArgumentOutOfRangeException>(() => list.InsertRange(1, nonEmptyList));
+            Assert.Throws<ArgumentOutOfRangeException>(() => list.InsertRange(-1, nonEmptyList));
+
+            list = list.InsertRange(0, ImmutableList.Create(1, 104, 105));
+            list = list.InsertRange(1, ImmutableList.Create(2, 3));
+            list = list.InsertRange(2, ImmutableList<int>.Empty);
+            list = list.InsertRange(3, ImmutableList<int>.Empty.InsertRange(0, Enumerable.Range(4, 100)));
+            Assert.Equal(Enumerable.Range(1, 105), list);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => list.InsertRange(106, nonEmptyList));
+            Assert.Throws<ArgumentOutOfRangeException>(() => list.InsertRange(-1, nonEmptyList));
         }
 
         [Fact]
@@ -207,9 +317,22 @@ namespace System.Collections.Immutable.Test
         }
 
         [Fact]
+        public void Remove_NullEqualityComparer()
+        {
+            var collection = ImmutableList.Create(1, 2, 3);
+            var modified = collection.Remove(2, null);
+            Assert.Equal(new[] { 1, 3 }, modified);
+
+            // Try again through the explicit interface implementation.
+            IImmutableList<int> collectionIface = collection;
+            var modified2 = collectionIface.Remove(2, null);
+            Assert.Equal(new[] { 1, 3 }, modified2);
+        }
+
+        [Fact]
         public void RemoveTest()
         {
-            var list = ImmutableList<int>.Empty;
+            ImmutableList<int> list = ImmutableList<int>.Empty;
             for (int i = 1; i <= 10; i++)
             {
                 list = list.Add(i * 10);
@@ -232,6 +355,29 @@ namespace System.Collections.Immutable.Test
             Assert.Equal(5, list.Count);
             Assert.False(list.Contains(20));
             Assert.False(list.Contains(70));
+
+            IImmutableList<int> list2 = ImmutableList<int>.Empty;
+            for (int i = 1; i <= 10; i++)
+            {
+                list2 = list2.Add(i * 10);
+            }
+
+            list2 = list2.Remove(30);
+            Assert.Equal(9, list2.Count);
+            Assert.False(list2.Contains(30));
+
+            list2 = list2.Remove(100);
+            Assert.Equal(8, list2.Count);
+            Assert.False(list2.Contains(100));
+
+            list2 = list2.Remove(10);
+            Assert.Equal(7, list2.Count);
+            Assert.False(list2.Contains(10));
+
+            list2 = list2.RemoveAll(removeList.Contains);
+            Assert.Equal(5, list2.Count);
+            Assert.False(list2.Contains(20));
+            Assert.False(list2.Contains(70));
         }
 
         [Fact]
@@ -239,6 +385,25 @@ namespace System.Collections.Immutable.Test
         {
             var list = ImmutableList<int>.Empty;
             Assert.Same(list, list.Remove(3));
+        }
+
+        /// <summary>
+        /// Verifies that RemoveRange does not enumerate its argument if the list is empty
+        /// and therefore could not possibly have any elements to remove anyway.
+        /// </summary>
+        /// <remarks>
+        /// While this would seem an implementation detail and simply an optimization,
+        /// it turns out that changing this behavior now *could* represent a breaking change
+        /// because if the enumerable were to throw an exception, that exception would not be
+        /// observed previously, but would start to be thrown if this behavior changed.
+        /// So this is a test to lock the behavior in place.
+        /// </remarks>
+        /// <seealso cref="ImmutableSetTest.ExceptDoesEnumerateSequenceIfThisIsEmpty"/>
+        [Fact]
+        public void RemoveRangeDoesNotEnumerateSequenceIfThisIsEmpty()
+        {
+            var list = ImmutableList<int>.Empty;
+            list.RemoveRange(Enumerable.Range(1, 1).Select<int, int>(n => { throw new ShouldNotBeInvokedException(); }));
         }
 
         [Fact]
@@ -304,6 +469,7 @@ namespace System.Collections.Immutable.Test
             Assert.Throws<ArgumentOutOfRangeException>(() => list[-1]);
 
             Assert.Equal(3, ((IList)list)[2]);
+            Assert.Equal(3, ((IList<int>)list)[2]);
         }
 
         [Fact]
@@ -329,12 +495,14 @@ namespace System.Collections.Immutable.Test
             IndexOfTests.LastIndexOfTest(
                 seq => ImmutableList.CreateRange(seq),
                 (b, v) => b.LastIndexOf(v),
+                (b, v, eq) => b.LastIndexOf(v, eq),
                 (b, v, i) => b.LastIndexOf(v, i),
                 (b, v, i, c) => b.LastIndexOf(v, i, c),
                 (b, v, i, c, eq) => b.LastIndexOf(v, i, c, eq));
             IndexOfTests.LastIndexOfTest(
                 seq => (IImmutableList<int>)ImmutableList.CreateRange(seq),
                 (b, v) => b.LastIndexOf(v),
+                (b, v, eq) => b.LastIndexOf(v, eq),
                 (b, v, i) => b.LastIndexOf(v, i),
                 (b, v, i, c) => b.LastIndexOf(v, i, c),
                 (b, v, i, c, eq) => b.LastIndexOf(v, i, c, eq));
@@ -348,11 +516,16 @@ namespace System.Collections.Immutable.Test
             Assert.Equal<int>(new[] { 4, 5, 8 }, list.Replace(3, 4));
             Assert.Equal<int>(new[] { 3, 6, 8 }, list.Replace(5, 6));
             Assert.Equal<int>(new[] { 3, 5, 9 }, list.Replace(8, 9));
+            Assert.Equal<int>(new[] { 4, 5, 8 }, ((IImmutableList<int>)list).Replace(3, 4));
+            Assert.Equal<int>(new[] { 3, 6, 8 }, ((IImmutableList<int>)list).Replace(5, 6));
+            Assert.Equal<int>(new[] { 3, 5, 9 }, ((IImmutableList<int>)list).Replace(8, 9));
 
             // Verify replacement of first element when there are duplicates.
             list = ImmutableList<int>.Empty.Add(3).Add(3).Add(5);
             Assert.Equal<int>(new[] { 4, 3, 5 }, list.Replace(3, 4));
             Assert.Equal<int>(new[] { 4, 4, 5 }, list.Replace(3, 4).Replace(3, 4));
+            Assert.Equal<int>(new[] { 4, 3, 5 }, ((IImmutableList<int>)list).Replace(3, 4));
+            Assert.Equal<int>(new[] { 4, 4, 5 }, ((IImmutableList<int>)list).Replace(3, 4).Replace(3, 4));
         }
 
         [Fact]
@@ -362,6 +535,15 @@ namespace System.Collections.Immutable.Test
             var newAge = new Person { Name = "Andrew", Age = 21 };
             var updatedList = list.Replace(newAge, newAge, new NameOnlyEqualityComparer());
             Assert.Equal(newAge.Age, updatedList[0].Age);
+
+            // Try again with a null equality comparer, which should use the default EQ.
+            updatedList = list.Replace(list[0], newAge);
+            Assert.NotSame(list, updatedList);
+
+            // Finally, try one last time using the interface implementation.
+            IImmutableList<Person> iface = list;
+            var updatedIface = iface.Replace(list[0], newAge);
+            Assert.NotSame(iface, updatedIface);
         }
 
         [Fact]
@@ -423,14 +605,24 @@ namespace System.Collections.Immutable.Test
         [Fact]
         public void RemoveRangeArrayTest()
         {
+            Assert.True(ImmutableList<int>.Empty.RemoveRange(0, 0).IsEmpty);
+
             var list = ImmutableList.Create(1, 2, 3);
             Assert.Throws<ArgumentOutOfRangeException>(() => list.RemoveRange(-1, 0));
             Assert.Throws<ArgumentOutOfRangeException>(() => list.RemoveRange(0, -1));
             Assert.Throws<ArgumentOutOfRangeException>(() => list.RemoveRange(4, 0));
             Assert.Throws<ArgumentOutOfRangeException>(() => list.RemoveRange(0, 4));
             Assert.Throws<ArgumentOutOfRangeException>(() => list.RemoveRange(2, 2));
-            list.RemoveRange(3, 0);
-            Assert.Equal(3, list.Count);
+            Assert.Equal(list, list.RemoveRange(3, 0));
+        }
+
+        [Fact]
+        public void RemoveRange_EnumerableEqualityComparer_AcceptsNullEQ()
+        {
+            var list = ImmutableList.Create(1, 2, 3);
+            var removed2eq = list.RemoveRange(new[] { 2 }, null);
+            Assert.Equal(2, removed2eq.Count);
+            Assert.Equal(new[] { 1, 3 }, removed2eq);
         }
 
         [Fact]
@@ -446,6 +638,7 @@ namespace System.Collections.Immutable.Test
             ImmutableList<int> removed13 = list.RemoveRange(new[] { 1, 3, 5 });
             Assert.Equal(1, removed13.Count);
             Assert.Equal(new[] { 2 }, removed13);
+            Assert.Equal(new[] { 2 }, ((IImmutableList<int>)list).RemoveRange(new[] { 1, 3, 5 }));
 
             Assert.Same(list, list.RemoveRange(new[] { 5 }));
             Assert.Same(ImmutableList.Create<int>(), ImmutableList.Create<int>().RemoveRange(new[] { 1 }));
@@ -453,6 +646,9 @@ namespace System.Collections.Immutable.Test
             var listWithDuplicates = ImmutableList.Create(1, 2, 2, 3);
             Assert.Equal(new[] { 1, 2, 3 }, listWithDuplicates.RemoveRange(new[] { 2 }));
             Assert.Equal(new[] { 1, 3 }, listWithDuplicates.RemoveRange(new[] { 2, 2 }));
+
+            Assert.Throws<ArgumentNullException>(() => ((IImmutableList<int>)ImmutableList.Create(1, 2, 3)).RemoveRange(null));
+            Assert.Equal(new[] { 1, 3 }, ((IImmutableList<int>)ImmutableList.Create(1, 2, 3)).RemoveRange(new[] { 2 }));
         }
 
         [Fact]
@@ -560,6 +756,16 @@ namespace System.Collections.Immutable.Test
             Assert.Throws<NotSupportedException>(() => list[0] = 1);
         }
 
+        [Fact]
+        public void DebuggerAttributesValid()
+        {
+            DebuggerAttributes.ValidateDebuggerDisplayReferences(ImmutableList.Create<int>());
+            DebuggerAttributes.ValidateDebuggerTypeProxyProperties(ImmutableList.Create<double>(1, 2, 3));
+
+            object rootNode = DebuggerAttributes.GetFieldValue(ImmutableList.Create<string>("1", "2", "3"), "_root");
+            DebuggerAttributes.ValidateDebuggerDisplayReferences(rootNode);
+        }
+
         protected override IEnumerable<T> GetEnumerableOf<T>(params T[] contents)
         {
             return ImmutableList<T>.Empty.AddRange(contents);
@@ -604,6 +810,11 @@ namespace System.Collections.Immutable.Test
         internal override IImmutableListQueries<T> GetListQuery<T>(ImmutableList<T> list)
         {
             return list;
+        }
+
+        private static void VerifyBalanced<T>(ImmutableList<T> tree)
+        {
+            tree.Root.VerifyBalanced();
         }
 
         private struct Person

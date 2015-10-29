@@ -1,7 +1,9 @@
-using Xunit;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlDocumentTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
     public class CreateDocumentFragment
     {
@@ -9,7 +11,7 @@ namespace XmlDocumentTests.XmlDocumentTests
         public static void CheckNodeType()
         {
             var xmlDocument = new XmlDocument();
-            var documentFragment=xmlDocument.CreateDocumentFragment();
+            var documentFragment = xmlDocument.CreateDocumentFragment();
 
             Assert.Equal(XmlNodeType.DocumentFragment, documentFragment.NodeType);
         }

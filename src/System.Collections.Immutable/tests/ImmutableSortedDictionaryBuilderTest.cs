@@ -2,10 +2,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Xunit;
 
-namespace System.Collections.Immutable.Test
+namespace System.Collections.Immutable.Tests
 {
     public class ImmutableSortedDictionaryBuilderTest : ImmutableDictionaryBuilderTestBase
     {
@@ -147,6 +148,15 @@ namespace System.Collections.Immutable.Test
             var newImmutable = builder.ToImmutable();
             Assert.NotSame(collection, newImmutable); // first ToImmutable with changes should be a new instance.
             Assert.Same(newImmutable, builder.ToImmutable()); // second ToImmutable without changes should be the same instance.
+
+            collection = collection.Clear(); // now start with an empty collection 
+            builder = collection.ToBuilder();
+            Assert.Same(collection, builder.ToImmutable()); // again, no changes at all. 
+            builder.ValueComparer = StringComparer.OrdinalIgnoreCase; // now, force the builder to clear its cache 
+
+            newImmutable = builder.ToImmutable();
+            Assert.NotSame(collection, newImmutable); // first ToImmutable with changes should be a new instance. 
+            Assert.Same(newImmutable, builder.ToImmutable()); // second ToImmutable without changes should be the same instance. 
         }
 
         [Fact]
@@ -241,6 +251,13 @@ namespace System.Collections.Immutable.Test
             Assert.Equal(1, empty.GetValueOrDefault("a", 1));
             Assert.Equal(5, populated.GetValueOrDefault("a"));
             Assert.Equal(5, populated.GetValueOrDefault("a", 1));
+        }
+
+        [Fact]
+        public void DebuggerAttributesValid()
+        {
+            DebuggerAttributes.ValidateDebuggerDisplayReferences(ImmutableSortedDictionary.CreateBuilder<string, int>());
+            DebuggerAttributes.ValidateDebuggerTypeProxyProperties(ImmutableSortedDictionary.CreateBuilder<int, string>());
         }
 
         protected override IImmutableDictionary<TKey, TValue> GetEmptyImmutableDictionary<TKey, TValue>()

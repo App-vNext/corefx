@@ -1,8 +1,9 @@
-using Xunit;
-using System;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlElementTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
     public class SetAttributeNodeTests
     {
@@ -76,7 +77,6 @@ namespace XmlDocumentTests.XmlElementTests
             child1.SetAttributeNode(attribute);
 
             Assert.Throws<InvalidOperationException>(() => child2.SetAttributeNode(attribute));
-
         }
     }
 }

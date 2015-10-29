@@ -1,9 +1,9 @@
-using Xunit;
-using System;
-using System.IO;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlDocumentTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
     public class CreateXmlDeclarationTests
     {
@@ -60,7 +60,7 @@ namespace XmlDocumentTests.XmlDocumentTests
             var decl = xmlDocument.CreateXmlDeclaration("1.0", "wrong", "yes");
         }
 
-        /*[Fact] TODO*/
+        [Fact]
         public static void InvalidStandalone()
         {
             var xmlDocument = new XmlDocument();

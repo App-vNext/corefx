@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft. All rights reserved.
+﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
@@ -26,10 +26,10 @@ namespace System.Reflection.Metadata.Ecma335
 
             if ((int)tableIndex >= TableIndexExtensions.Count)
             {
-                throw new ArgumentOutOfRangeException("tableIndex");
+                Throw.TableIndexOutOfRange();
             }
 
-            return (int)reader.TableRowCounts[(int)tableIndex];
+            return reader.TableRowCounts[(int)tableIndex];
         }
 
         /// <summary>
@@ -91,6 +91,16 @@ namespace System.Reflection.Metadata.Ecma335
                 case TableIndex.GenericParam: return reader.GenericParamTable.RowSize;
                 case TableIndex.MethodSpec: return reader.MethodSpecTable.RowSize;
                 case TableIndex.GenericParamConstraint: return reader.GenericParamConstraintTable.RowSize;
+
+                // debug tables
+                case TableIndex.Document: return reader.DocumentTable.RowSize;
+                case TableIndex.MethodDebugInformation: return reader.MethodDebugInformationTable.RowSize;
+                case TableIndex.LocalScope: return reader.LocalScopeTable.RowSize;
+                case TableIndex.LocalVariable: return reader.LocalVariableTable.RowSize;
+                case TableIndex.LocalConstant: return reader.LocalConstantTable.RowSize;
+                case TableIndex.ImportScope: return reader.ImportScopeTable.RowSize;
+                case TableIndex.StateMachineMethod: return reader.StateMachineMethodTable.RowSize;
+                case TableIndex.CustomDebugInformation: return reader.CustomDebugInformationTable.RowSize;
 
                 default:
                     throw new ArgumentOutOfRangeException("tableIndex");
@@ -163,6 +173,16 @@ namespace System.Reflection.Metadata.Ecma335
                 case TableIndex.GenericParam: return reader.GenericParamTable.Block;
                 case TableIndex.MethodSpec: return reader.MethodSpecTable.Block;
                 case TableIndex.GenericParamConstraint: return reader.GenericParamConstraintTable.Block;
+
+                // debug tables
+                case TableIndex.Document: return reader.DocumentTable.Block;
+                case TableIndex.MethodDebugInformation: return reader.MethodDebugInformationTable.Block;
+                case TableIndex.LocalScope: return reader.LocalScopeTable.Block;
+                case TableIndex.LocalVariable: return reader.LocalVariableTable.Block;
+                case TableIndex.LocalConstant: return reader.LocalConstantTable.Block;
+                case TableIndex.ImportScope: return reader.ImportScopeTable.Block;
+                case TableIndex.StateMachineMethod: return reader.StateMachineMethodTable.Block;
+                case TableIndex.CustomDebugInformation: return reader.CustomDebugInformationTable.Block;
 
                 default:
                     throw new ArgumentOutOfRangeException("tableIndex");
@@ -280,10 +300,10 @@ namespace System.Reflection.Metadata.Ecma335
                 throw new ArgumentNullException("reader");
             }
 
-            for (uint rid = 1; rid <= reader.EncLogTable.NumberOfRows; rid++)
+            for (int rid = 1; rid <= reader.EncLogTable.NumberOfRows; rid++)
             {
                 yield return new EditAndContinueLogEntry(
-                    new Handle(reader.EncLogTable.GetToken(rid)),
+                    new EntityHandle(reader.EncLogTable.GetToken(rid)),
                     reader.EncLogTable.GetFuncCode(rid));
             }
         }
@@ -292,16 +312,16 @@ namespace System.Reflection.Metadata.Ecma335
         /// Enumerates entries of EnC map.
         /// </summary>
         /// <exception cref="ArgumentNullException"><paramref name="reader"/> is null.</exception>
-        public static IEnumerable<Handle> GetEditAndContinueMapEntries(this MetadataReader reader)
+        public static IEnumerable<EntityHandle> GetEditAndContinueMapEntries(this MetadataReader reader)
         {
             if (reader == null)
             {
                 throw new ArgumentNullException("reader");
             }
 
-            for (uint rid = 1; rid <= reader.EncMapTable.NumberOfRows; rid++)
+            for (int rid = 1; rid <= reader.EncMapTable.NumberOfRows; rid++)
             {
-                yield return new Handle(reader.EncMapTable.GetToken(rid));
+                yield return new EntityHandle(reader.EncMapTable.GetToken(rid));
             }
         }
 
@@ -319,7 +339,7 @@ namespace System.Reflection.Metadata.Ecma335
                 throw new ArgumentNullException("reader");
             }
 
-            for (uint rid = 1; rid <= reader.PropertyMapTable.NumberOfRows; rid++)
+            for (int rid = 1; rid <= reader.PropertyMapTable.NumberOfRows; rid++)
             {
                 yield return reader.PropertyMapTable.GetParentType(rid);
             }
@@ -339,7 +359,7 @@ namespace System.Reflection.Metadata.Ecma335
                 throw new ArgumentNullException("reader");
             }
 
-            for (uint rid = 1; rid <= reader.EventMapTable.NumberOfRows; rid++)
+            for (int rid = 1; rid <= reader.EventMapTable.NumberOfRows; rid++)
             {
                 yield return reader.EventMapTable.GetParentType(rid);
             }

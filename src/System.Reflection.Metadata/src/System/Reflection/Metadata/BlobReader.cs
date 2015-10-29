@@ -1,13 +1,10 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Reflection.Internal;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Text;
 
 namespace System.Reflection.Metadata
 {
@@ -15,60 +12,45 @@ namespace System.Reflection.Metadata
     public unsafe struct BlobReader
     {
         /// <summary>An array containing the '\0' character.</summary>
-        private static readonly char[] _nullCharArray = new char[1] { '\0' };
-        
+        private static readonly char[] s_nullCharArray = new char[1] { '\0' };
+
         internal const int InvalidCompressedInteger = Int32.MaxValue;
 
-        private readonly MemoryBlock block;
+        private readonly MemoryBlock _block;
 
         // Points right behind the last byte of the block.
-        private readonly byte* endPointer;
+        private readonly byte* _endPointer;
 
-        private byte* currentPointer;
+        private byte* _currentPointer;
 
         public unsafe BlobReader(byte* buffer, int length)
+            : this(MemoryBlock.CreateChecked(buffer, length))
         {
-            if (length < 0)
-            {
-                throw new ArgumentOutOfRangeException("length");
-            }
 
-            if (buffer == null && length != 0)
-            {
-                throw new ArgumentNullException("buffer");
-            }
-
-            // the reader performs little-endian specific operations
-            if (!BitConverter.IsLittleEndian)
-            {
-                throw new PlatformNotSupportedException(MetadataResources.LitteEndianArchitectureRequired);
-            }
-
-            this = new BlobReader(new MemoryBlock(buffer, length));
         }
 
         internal BlobReader(MemoryBlock block)
         {
             Debug.Assert(BitConverter.IsLittleEndian && block.Length >= 0 && (block.Pointer != null || block.Length == 0));
-            this.block = block;
-            this.currentPointer = block.Pointer;
-            this.endPointer = block.Pointer + block.Length;
+            _block = block;
+            _currentPointer = block.Pointer;
+            _endPointer = block.Pointer + block.Length;
         }
 
-        private string GetDebuggerDisplay()
+        internal string GetDebuggerDisplay()
         {
-            if (block.Pointer == null)
+            if (_block.Pointer == null)
             {
                 return "<null>";
             }
 
             int displayedBytes;
-            string display = block.GetDebuggerDisplay(out displayedBytes);
+            string display = _block.GetDebuggerDisplay(out displayedBytes);
             if (this.Offset < displayedBytes)
             {
                 display = display.Insert(this.Offset * 3, "*");
             }
-            else if (displayedBytes == block.Length)
+            else if (displayedBytes == _block.Length)
             {
                 display += "*";
             }
@@ -86,7 +68,7 @@ namespace System.Reflection.Metadata
         {
             get
             {
-                return block.Length;
+                return _block.Length;
             }
         }
 
@@ -94,7 +76,7 @@ namespace System.Reflection.Metadata
         {
             get
             {
-                return (int)(this.currentPointer - block.Pointer);
+                return (int)(_currentPointer - _block.Pointer);
             }
         }
 
@@ -102,23 +84,23 @@ namespace System.Reflection.Metadata
         {
             get
             {
-                return (int)(this.endPointer - this.currentPointer);
+                return (int)(_endPointer - _currentPointer);
             }
         }
 
         public void Reset()
         {
-            this.currentPointer = block.Pointer;
+            _currentPointer = _block.Pointer;
         }
 
         internal bool SeekOffset(int offset)
         {
-            if (unchecked((uint)offset) >= (uint)block.Length)
+            if (unchecked((uint)offset) >= (uint)_block.Length)
             {
                 return false;
             }
 
-            this.currentPointer = block.Pointer + offset;
+            _currentPointer = _block.Pointer + offset;
             return true;
         }
 
@@ -131,7 +113,7 @@ namespace System.Reflection.Metadata
         {
             if (!TryAlign(alignment))
             {
-                ThrowOutOfBounds();
+                Throw.OutOfBounds();
             }
         }
 
@@ -149,69 +131,66 @@ namespace System.Reflection.Metadata
                 {
                     return false;
                 }
-                this.currentPointer += bytesToSkip;
+
+                _currentPointer += bytesToSkip;
             }
+
             return true;
         }
 
         internal MemoryBlock GetMemoryBlockAt(int offset, int length)
         {
             CheckBounds(offset, length);
-            return new MemoryBlock(this.currentPointer + offset, length);
+            return new MemoryBlock(_currentPointer + offset, length);
         }
+
         #endregion
 
         #region Bounds Checking
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void ThrowOutOfBounds()
-        {
-            throw new BadImageFormatException(MetadataResources.OutOfBoundsRead);
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckBounds(int offset, int byteCount)
         {
-            if (unchecked((ulong)(uint)offset + (uint)byteCount) > (ulong)(this.endPointer - this.currentPointer))
+            if (unchecked((ulong)(uint)offset + (uint)byteCount) > (ulong)(_endPointer - _currentPointer))
             {
-                ThrowOutOfBounds();
+                Throw.OutOfBounds();
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckBounds(int byteCount)
         {
-            if (unchecked((uint)byteCount) > (this.endPointer - this.currentPointer))
+            if (unchecked((uint)byteCount) > (_endPointer - _currentPointer))
             {
-                ThrowOutOfBounds();
+                Throw.OutOfBounds();
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private byte* GetCurrentPointerAndAdvance(int length)
         {
-            byte* p = this.currentPointer;
+            byte* p = _currentPointer;
 
-            if (unchecked((uint)length) > (uint)(this.endPointer - p))
+            if (unchecked((uint)length) > (uint)(_endPointer - p))
             {
-                ThrowOutOfBounds();
+                Throw.OutOfBounds();
             }
 
-            this.currentPointer = p + length;
+            _currentPointer = p + length;
             return p;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private byte* GetCurrentPointerAndAdvance1()
         {
-            byte* p = this.currentPointer;
+            byte* p = _currentPointer;
 
-            if (p == this.endPointer)
+            if (p == _endPointer)
             {
-                ThrowOutOfBounds();
+                Throw.OutOfBounds();
             }
 
-            this.currentPointer = p + 1;
+            _currentPointer = p + 1;
             return p;
         }
 
@@ -221,62 +200,104 @@ namespace System.Reflection.Metadata
 
         public bool ReadBoolean()
         {
-            return ReadByte() == 1;
+            // It's not clear from the ECMA spec what exactly is the encoding of Boolean. 
+            // Some metadata writers encode "true" as 0xff, others as 1. So we treat all non-zero values as "true".
+            //
+            // We propose to clarify and relax the current wording in the spec as follows:
+            //
+            // Chapter II.16.2 "Field init metadata"
+            //   ... bool '(' true | false ')' Boolean value stored in a single byte, 0 represents false, any non-zero value represents true ...
+            // 
+            // Chapter 23.3 "Custom attributes"
+            //   ... A bool is a single byte with value 0 reprseenting false and any non-zero value representing true ...
+            return ReadByte() != 0;
         }
 
-        public SByte ReadSByte()
+        public sbyte ReadSByte()
         {
-            return *(SByte*)GetCurrentPointerAndAdvance1();
+            return *(sbyte*)GetCurrentPointerAndAdvance1();
         }
 
-        public Byte ReadByte()
+        public byte ReadByte()
         {
-            return *(Byte*)GetCurrentPointerAndAdvance1();
+            return *(byte*)GetCurrentPointerAndAdvance1();
         }
 
-        public Char ReadChar()
+        public char ReadChar()
         {
-            return *(Char*)GetCurrentPointerAndAdvance(sizeof(Char));
+            return *(char*)GetCurrentPointerAndAdvance(sizeof(char));
         }
 
-        public Int16 ReadInt16()
+        public short ReadInt16()
         {
-            return *(Int16*)GetCurrentPointerAndAdvance(sizeof(Int16));
+            return *(short*)GetCurrentPointerAndAdvance(sizeof(short));
         }
 
-        public UInt16 ReadUInt16()
+        public ushort ReadUInt16()
         {
-            return *(UInt16*)GetCurrentPointerAndAdvance(sizeof(UInt16));
+            return *(ushort*)GetCurrentPointerAndAdvance(sizeof(ushort));
         }
 
-        public Int32 ReadInt32()
+        public int ReadInt32()
         {
-            return *(Int32*)GetCurrentPointerAndAdvance(sizeof(Int32));
+            return *(int*)GetCurrentPointerAndAdvance(sizeof(int));
         }
 
-        public UInt32 ReadUInt32()
+        public uint ReadUInt32()
         {
-            return *(UInt32*)GetCurrentPointerAndAdvance(sizeof(UInt32));
+            return *(uint*)GetCurrentPointerAndAdvance(sizeof(uint));
         }
 
-        public Int64 ReadInt64()
+        public long ReadInt64()
         {
-            return *(Int64*)GetCurrentPointerAndAdvance(sizeof(Int64));
+            return *(long*)GetCurrentPointerAndAdvance(sizeof(long));
         }
 
-        public UInt64 ReadUInt64()
+        public ulong ReadUInt64()
         {
-            return *(UInt64*)GetCurrentPointerAndAdvance(sizeof(UInt64));
+            return *(ulong*)GetCurrentPointerAndAdvance(sizeof(ulong));
         }
 
-        public Single ReadSingle()
+        public float ReadSingle()
         {
-            return *(Single*)GetCurrentPointerAndAdvance(sizeof(Single));
+            return *(float*)GetCurrentPointerAndAdvance(sizeof(float));
         }
 
-        public Double ReadDouble()
+        public double ReadDouble()
         {
-            return *(Double*)GetCurrentPointerAndAdvance(sizeof(UInt64));
+            return *(double*)GetCurrentPointerAndAdvance(sizeof(double));
+        }
+
+        /// <summary>
+        /// Reads <see cref="decimal"/> number.
+        /// </summary>
+        /// <remarks>
+        /// Decimal number is encoded in 13 bytes as follows:
+        /// - byte 0: highest bit indicates sign (1 for negative, 0 for non-negative); the remaining 7 bits encode scale
+        /// - bytes 1..12: 96-bit unsigned integer in little endian encoding.
+        /// </remarks>
+        /// <exception cref="BadImageFormatException">The data at the current position was not a valid <see cref="decimal"/> number.</exception>
+        public decimal ReadDecimal()
+        {
+            byte* ptr = GetCurrentPointerAndAdvance(13);
+            
+            byte scale = (byte)(*ptr & 0x7f);
+            if (scale > 28)
+            {
+                throw new BadImageFormatException(SR.ValueTooLarge);
+            }
+
+            return new decimal(
+                *(int*)(ptr + 1),
+                *(int*)(ptr + 5),
+                *(int*)(ptr + 9),
+                isNegative: (*ptr & 0x80) != 0,
+                scale: scale);
+        }
+
+        public DateTime ReadDateTime()
+        {
+            return new DateTime(ReadInt64());
         }
 
         public SignatureHeader ReadSignatureHeader()
@@ -292,8 +313,8 @@ namespace System.Reflection.Metadata
         /// <exception cref="BadImageFormatException"><paramref name="byteCount"/> bytes not available.</exception>
         public string ReadUTF8(int byteCount)
         {
-            string s = this.block.PeekUtf8(this.Offset, byteCount);
-            this.currentPointer += byteCount;
+            string s = _block.PeekUtf8(this.Offset, byteCount);
+            _currentPointer += byteCount;
             return s;
         }
 
@@ -305,8 +326,8 @@ namespace System.Reflection.Metadata
         /// <exception cref="BadImageFormatException"><paramref name="byteCount"/> bytes not available.</exception>
         public string ReadUTF16(int byteCount)
         {
-            string s = this.block.PeekUtf16(this.Offset, byteCount);
-            this.currentPointer += byteCount;
+            string s = _block.PeekUtf16(this.Offset, byteCount);
+            _currentPointer += byteCount;
             return s;
         }
 
@@ -318,24 +339,24 @@ namespace System.Reflection.Metadata
         /// <exception cref="BadImageFormatException"><paramref name="byteCount"/> bytes not available.</exception>
         public byte[] ReadBytes(int byteCount)
         {
-            byte[] bytes = this.block.PeekBytes(this.Offset, byteCount);
-            this.currentPointer += byteCount;
+            byte[] bytes = _block.PeekBytes(this.Offset, byteCount);
+            _currentPointer += byteCount;
             return bytes;
         }
 
         internal string ReadUtf8NullTerminated()
         {
             int bytesRead;
-            string value = this.block.PeekUtf8NullTerminated(this.Offset, null, MetadataStringDecoder.DefaultUTF8, out bytesRead, '\0');
-            this.currentPointer += bytesRead;
+            string value = _block.PeekUtf8NullTerminated(this.Offset, null, MetadataStringDecoder.DefaultUTF8, out bytesRead, '\0');
+            _currentPointer += bytesRead;
             return value;
         }
 
         private int ReadCompressedIntegerOrInvalid()
         {
             int bytesRead;
-            int value = this.block.PeekCompressedInteger(this.Offset, out bytesRead);
-            this.currentPointer += bytesRead;
+            int value = _block.PeekCompressedInteger(this.Offset, out bytesRead);
+            _currentPointer += bytesRead;
             return value;
         }
 
@@ -356,13 +377,13 @@ namespace System.Reflection.Metadata
         /// See Metadata Specification section II.23.2: Blobs and signatures.
         /// </summary>
         /// <returns>The value of the compressed integer that was read.</returns>
-        /// <exception cref="System.BadImageFormatException">The data at the current position was not a valid compressed integer.</exception>
+        /// <exception cref="BadImageFormatException">The data at the current position was not a valid compressed integer.</exception>
         public int ReadCompressedInteger()
         {
             int value;
             if (!TryReadCompressedInteger(out value))
             {
-                ThrowInvalidCompressedInteger();
+                Throw.InvalidCompressedInteger();
             }
             return value;
         }
@@ -376,7 +397,7 @@ namespace System.Reflection.Metadata
         public bool TryReadCompressedSignedInteger(out int value)
         {
             int bytesRead;
-            value = this.block.PeekCompressedInteger(this.Offset, out bytesRead);
+            value = _block.PeekCompressedInteger(this.Offset, out bytesRead);
 
             if (value == InvalidCompressedInteger)
             {
@@ -403,7 +424,7 @@ namespace System.Reflection.Metadata
                 }
             }
 
-            this.currentPointer += bytesRead;
+            _currentPointer += bytesRead;
             return true;
         }
 
@@ -412,36 +433,25 @@ namespace System.Reflection.Metadata
         /// See Metadata Specification section II.23.2: Blobs and signatures.
         /// </summary>
         /// <returns>The value of the compressed integer that was read.</returns>
-        /// <exception cref="System.BadImageFormatException">The data at the current position was not a valid compressed integer.</exception>
+        /// <exception cref="BadImageFormatException">The data at the current position was not a valid compressed integer.</exception>
         public int ReadCompressedSignedInteger()
         {
             int value;
             if (!TryReadCompressedSignedInteger(out value))
             {
-                ThrowInvalidCompressedInteger();
+                Throw.InvalidCompressedInteger();
             }
             return value;
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void ThrowInvalidCompressedInteger()
-        {
-            throw new BadImageFormatException(MetadataResources.InvalidCompressedInteger);
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void ThrowInvalidSerializedString()
-        {
-            throw new BadImageFormatException(MetadataResources.InvalidSerializedString);
         }
 
         /// <summary>
         /// Reads type code encoded in a serialized custom attribute value. 
         /// </summary>
+        /// <returns><see cref="SerializationTypeCode.Invalid"/> if the encoding is invalid.</returns>
         public SerializationTypeCode ReadSerializationTypeCode()
         {
             int value = ReadCompressedIntegerOrInvalid();
-            if (value > Byte.MaxValue)
+            if (value > byte.MaxValue)
             {
                 return SerializationTypeCode.Invalid;
             }
@@ -452,6 +462,7 @@ namespace System.Reflection.Metadata
         /// <summary>
         /// Reads type code encoded in a signature. 
         /// </summary>
+        /// <returns><see cref="SignatureTypeCode.Invalid"/> if the encoding is invalid.</returns>
         public SignatureTypeCode ReadSignatureTypeCode()
         {
             int value = ReadCompressedIntegerOrInvalid();
@@ -463,7 +474,7 @@ namespace System.Reflection.Metadata
                     return SignatureTypeCode.TypeHandle;
 
                 default:
-                    if (value > Byte.MaxValue)
+                    if (value > byte.MaxValue)
                     {
                         return SignatureTypeCode.Invalid;
                     }
@@ -478,6 +489,7 @@ namespace System.Reflection.Metadata
         /// </summary>
         /// <remarks>Defined as a 'SerString' in the Ecma CLI specification.</remarks>
         /// <returns>String value or null.</returns>
+        /// <exception cref="BadImageFormatException">If the encoding is invalid.</exception>
         public string ReadSerializedString()
         {
             int length;
@@ -485,35 +497,122 @@ namespace System.Reflection.Metadata
             {
                 // Removal of trailing '\0' is a departure from the spec, but required
                 // for compatibility with legacy compilers.
-                return ReadUTF8(length).TrimEnd(_nullCharArray);
+                return ReadUTF8(length).TrimEnd(s_nullCharArray);
             }
 
             if (ReadByte() != 0xFF)
             {
-                ThrowInvalidSerializedString();
+                Throw.InvalidSerializedString();
             }
 
             return null;
         }
 
         /// <summary>
-        /// Reads a type handle encoded in a signature as (CLASS | VALUETYPE) TypeDefOrRefOrSpecEncoded. 
+        /// Reads a type handle encoded in a signature as TypeDefOrRefOrSpecEncoded (see ECMA-335 II.23.2.8).
         /// </summary>
         /// <returns>The handle or nil if the encoding is invalid.</returns>
-        public Handle ReadTypeHandle()
+        public EntityHandle ReadTypeHandle()
         {
             uint value = (uint)ReadCompressedIntegerOrInvalid();
-            uint tokenType = corEncodeTokenArray[value & 0x3];
+            uint tokenType = s_corEncodeTokenArray[value & 0x3];
 
             if (value == InvalidCompressedInteger || tokenType == 0)
             {
-                return default(Handle);
+                return default(EntityHandle);
             }
 
-            return new Handle(tokenType | (value >> 2));
+            return new EntityHandle(tokenType | (value >> 2));
         }
 
-        private static readonly uint[] corEncodeTokenArray = new uint[] { TokenTypeIds.TypeDef, TokenTypeIds.TypeRef, TokenTypeIds.TypeSpec, 0 };
+        private static readonly uint[] s_corEncodeTokenArray = new uint[] { TokenTypeIds.TypeDef, TokenTypeIds.TypeRef, TokenTypeIds.TypeSpec, 0 };
+
+        /// <summary>
+        /// Reads a #Blob heap handle encoded as a compressed integer.
+        /// </summary>
+        /// <remarks>
+        /// Blobs that contain references to other blobs are used in Portable PDB format, for example <see cref="Document.Name"/>.
+        /// </remarks>
+        public BlobHandle ReadBlobHandle()
+        {
+            return BlobHandle.FromOffset(ReadCompressedInteger());
+        }
+
+        /// <summary>
+        /// Reads a constant value (see ECMA-335 Partition II section 22.9) from the current position.
+        /// </summary>
+        /// <exception cref="BadImageFormatException">Error while reading from the blob.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="typeCode"/> is not a valid <see cref="ConstantTypeCode"/>.</exception>
+        /// <returns>
+        /// Boxed constant value. To avoid allocating the object use Read* methods directly.
+        /// Constants of type <see cref="ConstantTypeCode.String"/> are encoded as UTF16 strings, use <see cref="ReadUTF16(int)"/> to read them.
+        /// </returns>
+        public object ReadConstant(ConstantTypeCode typeCode)
+        {
+            // Partition II section 22.9:
+            //
+            // Type shall be exactly one of: ELEMENT_TYPE_BOOLEAN, ELEMENT_TYPE_CHAR, ELEMENT_TYPE_I1, 
+            // ELEMENT_TYPE_U1, ELEMENT_TYPE_I2, ELEMENT_TYPE_U2, ELEMENT_TYPE_I4, ELEMENT_TYPE_U4, 
+            // ELEMENT_TYPE_I8, ELEMENT_TYPE_U8, ELEMENT_TYPE_R4, ELEMENT_TYPE_R8, or ELEMENT_TYPE_STRING; 
+            // or ELEMENT_TYPE_CLASS with a Value of zero  (23.1.16)
+
+            switch (typeCode)
+            {
+                case ConstantTypeCode.Boolean:
+                    return ReadBoolean();
+
+                case ConstantTypeCode.Char:
+                    return ReadChar();
+
+                case ConstantTypeCode.SByte:
+                    return ReadSByte();
+
+                case ConstantTypeCode.Int16:
+                    return ReadInt16();
+
+                case ConstantTypeCode.Int32:
+                    return ReadInt32();
+
+                case ConstantTypeCode.Int64:
+                    return ReadInt64();
+
+                case ConstantTypeCode.Byte:
+                    return ReadByte();
+
+                case ConstantTypeCode.UInt16:
+                    return ReadUInt16();
+
+                case ConstantTypeCode.UInt32:
+                    return ReadUInt32();
+
+                case ConstantTypeCode.UInt64:
+                    return ReadUInt64();
+
+                case ConstantTypeCode.Single:
+                    return ReadSingle();
+
+                case ConstantTypeCode.Double:
+                    return ReadDouble();
+
+                case ConstantTypeCode.String:
+                    return ReadUTF16(RemainingBytes);
+
+                case ConstantTypeCode.NullReference:
+                    // Partition II section 22.9:
+                    // The encoding of Type for the nullref value is ELEMENT_TYPE_CLASS with a Value of a 4-byte zero.
+                    // Unlike uses of ELEMENT_TYPE_CLASS in signatures, this one is not followed by a type token.
+                    if (ReadUInt32() != 0)
+                    {
+                        throw new BadImageFormatException(SR.InvalidConstantValue);
+                    }
+
+                    return null;
+
+                default:
+                    throw new ArgumentOutOfRangeException("typeCode");
+            }
+        }
+
         #endregion
     }
 }

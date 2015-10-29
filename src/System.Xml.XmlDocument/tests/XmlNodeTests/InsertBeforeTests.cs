@@ -1,10 +1,11 @@
-using Xunit;
-using System;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlNodeTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
-    public class InsertBeforeTests
+    public class DocumentElement_InsertBeforeTests
     {
         [Fact]
         public static void NodeWithOneChild()
@@ -230,7 +231,7 @@ namespace XmlDocumentTests.XmlNodeTests
             var newTextNode = xmlDocument.CreateTextNode("text node");
 
             Assert.Equal(XmlNodeType.Element, node.NodeType);
-            var result= node.InsertBefore(newTextNode, null);
+            var result = node.InsertBefore(newTextNode, null);
 
             Assert.Equal(1, node.ChildNodes.Count);
             Assert.Equal(result, node.ChildNodes[0]);

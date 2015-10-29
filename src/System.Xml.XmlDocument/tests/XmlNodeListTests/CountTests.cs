@@ -1,9 +1,11 @@
-using Xunit;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlNodeListTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
-    class CountTests
+    public class NodeList_CountTests
     {
         [Fact]
         public static void CountTest1()

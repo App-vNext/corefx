@@ -2,12 +2,12 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.IO;
+using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
-using System.Reflection.PortableExecutable;
-using TestUtilities;
+using System.Reflection.Metadata.Tests;
 using Xunit;
 
-namespace System.Reflection.Metadata.Tests
+namespace System.Reflection.PortableExecutable.Tests
 {
     public class PEReaderTests
     {
@@ -43,13 +43,15 @@ namespace System.Reflection.Metadata.Tests
             Assert.True(invalid.CanRead);
 
             // valid metadata:
-            var valid = new MemoryStream(TestResources.Misc.Members);
+            var valid = new MemoryStream(Misc.Members);
             var peReader = new PEReader(valid, PEStreamOptions.Default);
             Assert.True(valid.CanRead);
             peReader.Dispose();
             Assert.False(valid.CanRead);
         }
 
+        // TODO: Switch to small checked in native image.
+        /*
         [Fact]
         public void OpenNativeImage()
         {
@@ -61,17 +63,18 @@ namespace System.Reflection.Metadata.Tests
                 Assert.Throws<InvalidOperationException>(() => reader.GetMetadataReader());
             }
         }
+        */
 
         [Fact]
         public void IL_LazyLoad()
         {
-            var peStream = new MemoryStream(TestResources.Misc.Members);
+            var peStream = new MemoryStream(Misc.Members);
             using (var reader = new PEReader(peStream, PEStreamOptions.LeaveOpen))
             {
                 var md = reader.GetMetadataReader();
                 var il = reader.GetMethodBody(md.GetMethodDefinition(MetadataTokens.MethodDefinitionHandle(1)).RelativeVirtualAddress);
 
-                AssertEx.Equal(new byte[] { 0, 42 }, il.GetILBytes());
+                Assert.Equal(new byte[] { 0, 42 }, il.GetILBytes());
                 Assert.Equal(8, il.MaxStack);
             }
         }
@@ -79,13 +82,13 @@ namespace System.Reflection.Metadata.Tests
         [Fact]
         public void IL_EagerLoad()
         {
-            var peStream = new MemoryStream(TestResources.Misc.Members);
+            var peStream = new MemoryStream(Misc.Members);
             using (var reader = new PEReader(peStream, PEStreamOptions.LeaveOpen | PEStreamOptions.PrefetchMetadata | PEStreamOptions.PrefetchEntireImage))
             {
                 var md = reader.GetMetadataReader();
                 var il = reader.GetMethodBody(md.GetMethodDefinition(MetadataTokens.MethodDefinitionHandle(1)).RelativeVirtualAddress);
 
-                AssertEx.Equal(new byte[] { 0, 42 }, il.GetILBytes());
+                Assert.Equal(new byte[] { 0, 42 }, il.GetILBytes());
                 Assert.Equal(8, il.MaxStack);
             }
         }
@@ -93,7 +96,7 @@ namespace System.Reflection.Metadata.Tests
         [Fact]
         public void Metadata_LazyLoad()
         {
-            var peStream = new MemoryStream(TestResources.Misc.Members);
+            var peStream = new MemoryStream(Misc.Members);
             using (var reader = new PEReader(peStream, PEStreamOptions.LeaveOpen))
             {
                 var md = reader.GetMetadataReader();
@@ -106,7 +109,7 @@ namespace System.Reflection.Metadata.Tests
         [Fact]
         public void Metadata_EagerLoad()
         {
-            var peStream = new MemoryStream(TestResources.Misc.Members);
+            var peStream = new MemoryStream(Misc.Members);
             using (var reader = new PEReader(peStream, PEStreamOptions.LeaveOpen | PEStreamOptions.PrefetchMetadata))
             {
                 var md = reader.GetMetadataReader();
@@ -121,7 +124,7 @@ namespace System.Reflection.Metadata.Tests
         [Fact]
         public void EntireImage_LazyLoad()
         {
-            var peStream = new MemoryStream(TestResources.Misc.Members);
+            var peStream = new MemoryStream(Misc.Members);
             using (var reader = new PEReader(peStream, PEStreamOptions.LeaveOpen))
             {
                 Assert.Equal(4608, reader.GetEntireImage().Length);
@@ -131,7 +134,7 @@ namespace System.Reflection.Metadata.Tests
         [Fact]
         public void EntireImage_EagerLoad()
         {
-            var peStream = new MemoryStream(TestResources.Misc.Members);
+            var peStream = new MemoryStream(Misc.Members);
             using (var reader = new PEReader(peStream, PEStreamOptions.LeaveOpen | PEStreamOptions.PrefetchMetadata | PEStreamOptions.PrefetchEntireImage))
             {
                 Assert.Equal(4608, reader.GetEntireImage().Length);

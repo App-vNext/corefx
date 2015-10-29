@@ -1,9 +1,11 @@
-using Xunit;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlNamedNodeMapTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
-    public static class GetNameTests 
+    public static class GetNameTests
     {
         [Fact]
         public static void EmptyElementCountTest()

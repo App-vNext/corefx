@@ -1,18 +1,12 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Validation;
 
 namespace System.Collections.Immutable
 {
     /// <content>
-    /// Contains the inner HashBucketComparer class.
+    /// Contains the inner <see cref="ImmutableDictionary{TKey, TValue}.Comparers"/> class.
     /// </content>
     public sealed partial class ImmutableDictionary<TKey, TValue>
     {
@@ -20,7 +14,7 @@ namespace System.Collections.Immutable
         /// A shareable container for the comparers used by an immutable dictionary.
         /// </summary>
         /// <remarks>
-        /// To reduce allocations, we directly implement the HashBucket and Key-Only comparers,
+        /// To reduce allocations, we directly implement the <see cref="HashBucket"/> and Key-Only comparers,
         /// but we try to keep this an implementation detail by exposing properties that return
         /// references for these particular facilities, that are implemented as returning "this".
         /// </remarks>
@@ -34,12 +28,12 @@ namespace System.Collections.Immutable
             /// <summary>
             /// The equality comparer to use for the key.
             /// </summary>
-            private readonly IEqualityComparer<TKey> keyComparer;
+            private readonly IEqualityComparer<TKey> _keyComparer;
 
             /// <summary>
             /// The value comparer.
             /// </summary>
-            private readonly IEqualityComparer<TValue> valueComparer;
+            private readonly IEqualityComparer<TValue> _valueComparer;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="Comparers"/> class.
@@ -51,8 +45,8 @@ namespace System.Collections.Immutable
                 Requires.NotNull(keyComparer, "keyComparer");
                 Requires.NotNull(valueComparer, "valueComparer");
 
-                this.keyComparer = keyComparer;
-                this.valueComparer = valueComparer;
+                _keyComparer = keyComparer;
+                _valueComparer = valueComparer;
             }
 
             /// <summary>
@@ -63,7 +57,7 @@ namespace System.Collections.Immutable
             /// </value>
             internal IEqualityComparer<TKey> KeyComparer
             {
-                get { return this.keyComparer; }
+                get { return _keyComparer; }
             }
 
             /// <summary>
@@ -85,7 +79,7 @@ namespace System.Collections.Immutable
             /// </value>
             internal IEqualityComparer<TValue> ValueComparer
             {
-                get { return this.valueComparer; }
+                get { return _valueComparer; }
             }
 
             /// <summary>
@@ -133,7 +127,7 @@ namespace System.Collections.Immutable
             /// </returns>
             bool IEqualityComparer<KeyValuePair<TKey, TValue>>.Equals(KeyValuePair<TKey, TValue> x, KeyValuePair<TKey, TValue> y)
             {
-                return this.keyComparer.Equals(x.Key, y.Key);
+                return _keyComparer.Equals(x.Key, y.Key);
             }
 
             /// <summary>
@@ -145,7 +139,7 @@ namespace System.Collections.Immutable
             /// </returns>
             int IEqualityComparer<KeyValuePair<TKey, TValue>>.GetHashCode(KeyValuePair<TKey, TValue> obj)
             {
-                return this.keyComparer.GetHashCode(obj.Key);
+                return _keyComparer.GetHashCode(obj.Key);
             }
 
             /// <summary>
@@ -174,7 +168,7 @@ namespace System.Collections.Immutable
             {
                 Requires.NotNull(valueComparer, "valueComparer");
 
-                return this.valueComparer == valueComparer
+                return _valueComparer == valueComparer
                     ? this
                     : Get(this.KeyComparer, valueComparer);
             }

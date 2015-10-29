@@ -1,18 +1,18 @@
-using Xunit;
-using System;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlNodeTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
     public class RemoveChildTests
     {
-        private static readonly XmlNodeType[] XmlNodeTypes = new XmlNodeType[] { XmlNodeType.Whitespace, XmlNodeType.SignificantWhitespace, XmlNodeType.CDATA, XmlNodeType.Text, XmlNodeType.Comment };
+        private static readonly XmlNodeType[] s_XmlNodeTypes = new XmlNodeType[] { XmlNodeType.Whitespace, XmlNodeType.SignificantWhitespace, XmlNodeType.CDATA, XmlNodeType.Text, XmlNodeType.Comment };
         private enum InsertType { InsertBefore, InsertAfter }
 
         [Fact]
         public static void IterativelyRemoveAllChildNodes()
         {
-
             var xml = @"<root>
   text node one
   <elem1 child1="""" child2=""duu"" child3=""e1;e2;"" child4=""a1"" child5=""goody"">
@@ -199,7 +199,7 @@ namespace XmlDocumentTests.XmlNodeTests
         {
             var xml = @"<TMC>text<!-- comments --><![CDATA[ &lt; &amp; <tag> < ! > & </tag> 	 ]]></TMC>";
 
-            foreach (var nodeType in XmlNodeTypes)
+            foreach (var nodeType in s_XmlNodeTypes)
                 DeleteNonTextNodeBase(xml, InsertType.InsertBefore, nodeType);
         }
 
@@ -208,7 +208,7 @@ namespace XmlDocumentTests.XmlNodeTests
         {
             var xml = @"<TCS xml:space=""preserve"">text<!-- comments -->   	</TCS>";
 
-            foreach (var nodeType in XmlNodeTypes)
+            foreach (var nodeType in s_XmlNodeTypes)
                 DeleteNonTextNodeBase(xml, InsertType.InsertBefore, nodeType);
         }
 
@@ -218,7 +218,7 @@ namespace XmlDocumentTests.XmlNodeTests
             var xml = @"<WMT>
             <!-- comments -->text</WMT>";
 
-            foreach (var nodeType in XmlNodeTypes)
+            foreach (var nodeType in s_XmlNodeTypes)
                 DeleteNonTextNodeBase(xml, InsertType.InsertBefore, nodeType);
         }
 
@@ -229,7 +229,7 @@ namespace XmlDocumentTests.XmlNodeTests
             <E/>
         </WEW>";
 
-            foreach (var nodeType in XmlNodeTypes)
+            foreach (var nodeType in s_XmlNodeTypes)
                 DeleteNonTextNodeBase(xml, InsertType.InsertAfter, nodeType);
         }
 
@@ -238,7 +238,7 @@ namespace XmlDocumentTests.XmlNodeTests
         {
             var xml = @"<TET>text1<E/>text2</TET>";
 
-            foreach (var nodeType in XmlNodeTypes)
+            foreach (var nodeType in s_XmlNodeTypes)
                 DeleteNonTextNodeBase(xml, InsertType.InsertAfter, nodeType);
         }
 
@@ -247,7 +247,7 @@ namespace XmlDocumentTests.XmlNodeTests
         {
             var xml = @" <SES xml:space=""preserve""> 	<E/>		</SES>";
 
-            foreach (var nodeType in XmlNodeTypes)
+            foreach (var nodeType in s_XmlNodeTypes)
                 DeleteNonTextNodeBase(xml, InsertType.InsertAfter, nodeType);
         }
 
@@ -256,7 +256,7 @@ namespace XmlDocumentTests.XmlNodeTests
         {
             var xml = @"<CEC><![CDATA[ &lt; &amp; <tag> < ! > & </tag> 	 ]]><E/><![CDATA[ &lt; &amp; <tag> < ! > & </tag> 	 ]]></CEC>";
 
-            foreach (var nodeType in XmlNodeTypes)
+            foreach (var nodeType in s_XmlNodeTypes)
                 DeleteNonTextNodeBase(xml, InsertType.InsertAfter, nodeType);
         }
 
@@ -383,8 +383,7 @@ namespace XmlDocumentTests.XmlNodeTests
                     VerifySiblings(refChild, newChild);
                     break;
                 default:
-                    Assert.True(false, "Wrong InsertType: '" + insertType + "'");
-                    break;
+                    throw new ArgumentException("Wrong InsertType: '" + insertType + "'");
             }
         }
 
@@ -413,8 +412,7 @@ namespace XmlDocumentTests.XmlNodeTests
                 case XmlNodeType.SignificantWhitespace:
                     return doc.CreateSignificantWhitespace("	");
                 default:
-                    Assert.True(false, "Wrong XmlNodeType: '" + nodeType + "'");
-                    return null;
+                    throw new ArgumentException("Wrong XmlNodeType: '" + nodeType + "'");
             }
         }
 
@@ -442,8 +440,7 @@ namespace XmlDocumentTests.XmlNodeTests
                     return InsertAfter;
             }
 
-            Assert.True(false, "Unknown type");
-            return null;
+            throw new ArgumentException("Unknown type");
         }
     }
 }

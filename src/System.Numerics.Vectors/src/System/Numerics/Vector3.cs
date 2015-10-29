@@ -57,7 +57,7 @@ namespace System.Numerics
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
         {
-            if (obj == null || !(obj is Vector3))
+            if (!(obj is Vector3))
                 return false;
             return Equals((Vector3)obj);
         }
@@ -91,14 +91,16 @@ namespace System.Numerics
         public string ToString(string format, IFormatProvider formatProvider)
         {
             StringBuilder sb = new StringBuilder();
-            string separator = NumberFormatInfo.GetInstance(formatProvider).NumberGroupSeparator + " ";
-            sb.Append("<");
+            string separator = NumberFormatInfo.GetInstance(formatProvider).NumberGroupSeparator;
+            sb.Append('<');
             sb.Append(((IFormattable)this.X).ToString(format, formatProvider));
             sb.Append(separator);
+            sb.Append(' ');
             sb.Append(((IFormattable)this.Y).ToString(format, formatProvider));
             sb.Append(separator);
+            sb.Append(' ');
             sb.Append(((IFormattable)this.Z).ToString(format, formatProvider));
-            sb.Append(">");
+            sb.Append('>');
             return sb.ToString();
         }
 
@@ -228,7 +230,7 @@ namespace System.Numerics
         }
 
         /// <summary>
-        /// Returns the reflection of a vector off a suface that has the specified normal.
+        /// Returns the reflection of a vector off a surface that has the specified normal.
         /// </summary>
         /// <param name="vector">The source vector.</param>
         /// <param name="normal">The normal of the surface being reflected off.</param>
@@ -263,7 +265,7 @@ namespace System.Numerics
         public static Vector3 Clamp(Vector3 value1, Vector3 min, Vector3 max)
         {
             // This compare order is very important!!!
-            // We must follow HLSL behavior in the case user specfied min value is bigger than max value.
+            // We must follow HLSL behavior in the case user specified min value is bigger than max value.
 
             float x = value1.X;
             x = (x > max.X) ? max.X : x;

@@ -3,19 +3,37 @@ setlocal
 
 :: Note: We've disabled node reuse because it causes file locking issues.
 ::       The issue is that we extend the build with our own targets which
-::       means that that rebuilding cannot successully delete the task
+::       means that that rebuilding cannot successfully delete the task
 ::       assembly. 
 
-:: Check prerequisites
-set _msbuildexe="%ProgramFiles(x86)%\MSBuild\12.0\Bin\MSBuild.exe"
-if not exist %_msbuildexe% set _msbuildexe="%ProgramFiles%\MSBuild\12.0\Bin\MSBuild.exe"
-if not exist %_msbuildexe% set _msbuildexe="%ProgramFiles(x86)%\MSBuild\14.0\Bin\MSBuild.exe"
-if not exist %_msbuildexe% set _msbuildexe="%ProgramFiles%\MSBuild\14.0\Bin\MSBuild.exe"
-if not exist %_msbuildexe% echo Error: Could not find MSBuild.exe.  Please see https://github.com/dotnet/corefx/blob/master/docs/Developers.md for build instructions. && goto :eof
+if not defined VisualStudioVersion (
+    if defined VS140COMNTOOLS (
+        call "%VS140COMNTOOLS%\VsDevCmd.bat"
+        goto :EnvSet
+    )
+
+    if defined VS120COMNTOOLS (
+        call "%VS120COMNTOOLS%\VsDevCmd.bat"
+        goto :EnvSet
+    )
+
+    echo Error: build.cmd requires Visual Studio 2013 or 2015.  
+    echo        Please see https://github.com/dotnet/corefx/blob/master/Documentation/project-docs/developer-guide.md for build instructions.
+    exit /b 1
+)
+
+:EnvSet
+:: Clear the 'Platform' env variable for this session,
+:: as it's a per-project setting within the build, and
+:: misleading value (such as 'MCD' in HP PCs) may lead
+:: to build breakage (issue: #69).
+set Platform=
 
 :: Log build command line
+set _buildproj=%~dp0build.proj
+set _buildlog=%~dp0msbuild.log
 set _buildprefix=echo
-set _buildpostfix=^> "%~dp0msbuild.log"
+set _buildpostfix=^> "%_buildlog%"
 call :build %*
 
 :: Build
@@ -23,8 +41,18 @@ set _buildprefix=
 set _buildpostfix=
 call :build %*
 
-goto :eof
+goto :AfterBuild
 
 :build
-%_buildprefix% %_msbuildexe% "%~dp0build.proj" /nologo /maxcpucount /verbosity:minimal /nodeReuse:false /fileloggerparameters:Verbosity=diag;LogFile="%~dp0msbuild.log";Append %* %_buildpostfix%
+%_buildprefix% msbuild "%_buildproj%" /nologo /maxcpucount /verbosity:minimal /nodeReuse:false /fileloggerparameters:Verbosity=normal;LogFile="%_buildlog%";Append %* %_buildpostfix%
+set BUILDERRORLEVEL=%ERRORLEVEL%
 goto :eof
+
+:AfterBuild
+
+echo.
+:: Pull the build summary from the log file
+findstr /ir /c:".*Warning(s)" /c:".*Error(s)" /c:"Time Elapsed.*" "%_buildlog%"
+echo Build Exit Code = %BUILDERRORLEVEL%
+
+exit /b %BUILDERRORLEVEL%

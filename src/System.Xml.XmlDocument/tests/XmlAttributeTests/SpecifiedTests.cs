@@ -1,11 +1,14 @@
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+
 using Xunit;
 
-namespace XmlDocumentTests.XmlAttributeTests
+namespace System.Xml.Tests
 {
     public static class SpecifiedTests
     {
         [Fact]
+        [OuterLoop]
         public static void AttributeSpecifiedTest()
         {
             var xmlDocument = new XmlDocument();

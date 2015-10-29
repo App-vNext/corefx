@@ -1,7 +1,9 @@
-using Xunit;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlElementTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
     public class RemoveAttributeTests
     {
@@ -9,7 +11,7 @@ namespace XmlDocumentTests.XmlElementTests
         public static void GetElements()
         {
             var xmlDocument = new XmlDocument();
-            xmlDocument.LoadXml("<doc> <elem1 attr1=\"foobar\" attr2=\"foo\" attr3=\"foo\">This is a test</elem1> text after </doc>");
+            xmlDocument.LoadXml("<doc> <elem1 attr1=\"attr1\" attr2=\"foo\" attr3=\"foo\">This is a test</elem1> text after </doc>");
 
             var node = (XmlElement)xmlDocument.DocumentElement.FirstChild;
             Assert.Equal(3, node.Attributes.Count);
@@ -55,7 +57,5 @@ namespace XmlDocumentTests.XmlElementTests
             xmlDocument.DocumentElement.RemoveAttribute("att26", "ns2");
             Assert.Equal(6, xmlDocument.DocumentElement.Attributes.Count);
         }
-
-
     }
 }

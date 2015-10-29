@@ -1,15 +1,13 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
-using Validation;
 using Xunit;
 using SetTriad = System.Tuple<System.Collections.Generic.IEnumerable<int>, System.Collections.Generic.IEnumerable<int>, bool>;
 
-namespace System.Collections.Immutable.Test
+namespace System.Collections.Immutable.Tests
 {
     public abstract class ImmutableSetTest : ImmutablesTestBase
     {
@@ -59,6 +57,25 @@ namespace System.Collections.Immutable.Test
             this.ExceptTestHelper(Empty<int>().Add(1).Add(3).Add(5).Add(7), 3, 7);
         }
 
+        /// <summary>
+        /// Verifies that Except *does* enumerate its argument if the collection is empty.
+        /// </summary>
+        /// <remarks>
+        /// While this would seem an implementation detail and simply lack of an optimization,
+        /// it turns out that changing this behavior now *could* represent a breaking change
+        /// because if the enumerable were to throw an exception, that exception would be
+        /// observed previously, but would no longer be thrown if this behavior changed.
+        /// So this is a test to lock the behavior in place or be thoughtful if adding the optimization.
+        /// </remarks>
+        /// <seealso cref="ImmutableListTest.RemoveRangeDoesNotEnumerateSequenceIfThisIsEmpty"/>
+        [Fact]
+        public void ExceptDoesEnumerateSequenceIfThisIsEmpty()
+        {
+            bool enumerated = false;
+            Empty<int>().Except(Enumerable.Range(1, 1).Select(n => { enumerated = true; return n; }));
+            Assert.True(enumerated);
+        }
+
         [Fact]
         public void SymmetricExceptTest()
         {
@@ -91,14 +108,19 @@ namespace System.Collections.Immutable.Test
         [Fact]
         public void UnionTest()
         {
-            var values1 = new[] { 2, 4, 6 };
-            var values2 = new[] { 1, 3, 5, 8 };
-            this.UnionTestHelper(this.Empty<int>().Union(values1), values2);
+            this.UnionTestHelper(this.Empty<int>(), new[] { 1, 3, 5, 7 });
+            this.UnionTestHelper(this.Empty<int>().Union(new[] { 2, 4, 6 }), new[] { 1, 3, 5, 7 });
+            this.UnionTestHelper(this.Empty<int>().Union(new[] { 1, 2, 3 }), new int[0] { });
+            this.UnionTestHelper(this.Empty<int>().Union(new[] { 2 }), Enumerable.Range(0, 1000).ToArray());
         }
 
         [Fact]
         public void SetEqualsTest()
         {
+            Assert.True(this.Empty<int>().SetEquals(this.Empty<int>()));
+            var nonEmptySet = this.Empty<int>().Add(5);
+            Assert.True(nonEmptySet.SetEquals(nonEmptySet));
+
             this.SetCompareTestHelper(s => s.SetEquals, s => s.SetEquals, this.GetSetEqualsScenarios());
         }
 
@@ -184,9 +206,13 @@ namespace System.Collections.Immutable.Test
         [Fact]
         public void ICollectionMethods()
         {
-            var builder = (ICollection)this.Empty<string>().Add("a");
+            ICollection builder = (ICollection)this.Empty<string>();
+            string[] array = new string[0];
+            builder.CopyTo(array, 0);
 
-            var array = new string[builder.Count + 1];
+            builder = (ICollection)this.Empty<string>().Add("a");
+            array = new string[builder.Count + 1];
+
             builder.CopyTo(array, 1);
             Assert.Equal(new[] { null, "a" }, array);
 
@@ -213,6 +239,8 @@ namespace System.Collections.Immutable.Test
         protected abstract IImmutableSet<T> Empty<T>();
 
         protected abstract ISet<T> EmptyMutable<T>();
+
+        internal abstract IBinaryTree GetRootNode<T>(IImmutableSet<T> set);
 
         protected void TryGetValueTestHelper(IImmutableSet<string> set)
         {
@@ -288,6 +316,7 @@ namespace System.Collections.Immutable.Test
                 new SetTriad(SetWith<int>(), new int[] { 5 }, false),
                 new SetTriad(SetWith<int>(5, 8), new int[] { 5 }, false),
                 new SetTriad(SetWith<int>(5), new int[] { 5, 8 }, false),
+                new SetTriad(SetWith<int>(5, 8), SetWith<int>(5, 8), true),
             };
         }
 
@@ -492,6 +521,8 @@ namespace System.Collections.Immutable.Test
 
             var actualSet = set.Except(valuesToRemove);
             CollectionAssertAreEquivalent(expectedSet.ToList(), actualSet.ToList());
+
+            this.VerifyAvlTreeState(actualSet);
         }
 
         private void SymmetricExceptTestHelper<T>(IImmutableSet<T> set, params T[] otherCollection)
@@ -504,6 +535,8 @@ namespace System.Collections.Immutable.Test
 
             var actualSet = set.SymmetricExcept(otherCollection);
             CollectionAssertAreEquivalent(expectedSet.ToList(), actualSet.ToList());
+
+            this.VerifyAvlTreeState(actualSet);
         }
 
         private void IntersectTestHelper<T>(IImmutableSet<T> set, params T[] values)
@@ -518,6 +551,8 @@ namespace System.Collections.Immutable.Test
 
             var actual = set.Intersect(values);
             CollectionAssertAreEquivalent(expected.ToList(), actual.ToList());
+
+            this.VerifyAvlTreeState(actual);
         }
 
         private void UnionTestHelper<T>(IImmutableSet<T> set, params T[] values)
@@ -530,6 +565,8 @@ namespace System.Collections.Immutable.Test
 
             var actual = set.Union(values);
             CollectionAssertAreEquivalent(expected.ToList(), actual.ToList());
+
+            this.VerifyAvlTreeState(actual);
         }
 
         private void AddTestHelper<T>(IImmutableSet<T> set, params T[] values)
@@ -573,6 +610,13 @@ namespace System.Collections.Immutable.Test
                 Assert.Same(nextSet, nextSet.Add(value)); //, "Adding duplicate value {0} should keep the original reference.", value);
                 set = nextSet;
             }
+        }
+
+        private void VerifyAvlTreeState<T>(IImmutableSet<T> set)
+        {
+            var rootNode = this.GetRootNode(set);
+            rootNode.VerifyBalanced();
+            rootNode.VerifyHeightIsWithinTolerance(set.Count);
         }
     }
 }

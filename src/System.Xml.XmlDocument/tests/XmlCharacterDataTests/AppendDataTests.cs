@@ -1,8 +1,9 @@
-using Xunit;
-using System;
-using System.Xml;
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace XmlDocumentTests.XmlCharacterDataTests
+using Xunit;
+
+namespace System.Xml.Tests
 {
     public class AppendDataTests
     {
@@ -59,6 +60,5 @@ namespace XmlDocumentTests.XmlCharacterDataTests
 
             Assert.Equal("already here hello", cdataNode.Data);
         }
-
     }
 }

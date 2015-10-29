@@ -3,11 +3,9 @@
 
 using System.Collections.Immutable;
 using System.IO;
-using System.Reflection.Internal;
-using TestUtilities;
 using Xunit;
 
-namespace System.Reflection.Metadata.Tests
+namespace System.Reflection.Internal.Tests
 {
     public class AbstractMemoryBlockTests
     {
@@ -21,14 +19,14 @@ namespace System.Reflection.Metadata.Tests
                 {
                     Assert.Equal(3, block.Size);
                     AssertEx.Equal(provider.Pointer, block.Pointer);
-                    AssertEx.Equal(array, block.GetContent());
+                    Assert.Equal(array, block.GetContent());
                 }
 
                 using (var block = provider.GetMemoryBlock(1, 2))
                 {
                     AssertEx.Equal(provider.Pointer + 1, block.Pointer);
                     Assert.Equal(2, block.Size);
-                    AssertEx.Equal(new byte[] { 2, 3 }, block.GetContent());
+                    Assert.Equal(new byte[] { 2, 3 }, block.GetContent());
                 }
             }
         }
@@ -45,14 +43,14 @@ namespace System.Reflection.Metadata.Tests
                     {
                         Assert.Equal(3, block.Size);
                         AssertEx.Equal(provider.Pointer, block.Pointer);
-                        AssertEx.Equal(array, block.GetContent());
+                        Assert.Equal(array, block.GetContent());
                     }
 
                     using (var block = provider.GetMemoryBlock(1, 2))
                     {
                         AssertEx.Equal(provider.Pointer + 1, block.Pointer);
                         Assert.Equal(2, block.Size);
-                        AssertEx.Equal(new byte[] { 2, 3 }, block.GetContent());
+                        Assert.Equal(new byte[] { 2, 3 }, block.GetContent());
                     }
                 }
             }
@@ -72,7 +70,7 @@ namespace System.Reflection.Metadata.Tests
                     {
                         Assert.IsType<NativeHeapMemoryBlock>(block);
                         Assert.Equal(3, block.Size);
-                        AssertEx.Equal(array, block.GetContent());
+                        Assert.Equal(array, block.GetContent());
                     }
 
                     Assert.Equal(3, stream.Position);
@@ -81,7 +79,7 @@ namespace System.Reflection.Metadata.Tests
                     {
                         Assert.IsType<NativeHeapMemoryBlock>(block);
                         Assert.Equal(2, block.Size);
-                        AssertEx.Equal(new byte[] { 2, 3 }, block.GetContent());
+                        Assert.Equal(new byte[] { 2, 3 }, block.GetContent());
                     }
 
                     Assert.Equal(3, stream.Position);
@@ -93,27 +91,13 @@ namespace System.Reflection.Metadata.Tests
                     {
                         Assert.IsType<NativeHeapMemoryBlock>(block);
                         Assert.Equal(3, block.Size);
-                        AssertEx.Equal(array, block.GetContent());
+                        Assert.Equal(array, block.GetContent());
                     }
 
                     Assert.Equal(3, stream.Position);
                 }
 
                 Assert.Throws<ObjectDisposedException>(() => stream.Position);
-            }
-        }
-
-        [Fact]
-        public void FileStream450()
-        {
-            try
-            {
-                MemoryMapLightUp.Test450Compat = true;
-                FileStream();
-            }
-            finally
-            {
-                MemoryMapLightUp.Test450Compat = false;
             }
         }
 
@@ -161,35 +145,38 @@ namespace System.Reflection.Metadata.Tests
 
                 File.WriteAllBytes(filePath, array);
 
-                using (var stream = new FileStream(filePath, FileMode.Open))
+                foreach (bool useAsync in new[] { true, false })
                 {
-                    Assert.True(FileStreamReadLightUp.IsFileStream(stream));
-
-                    using (var provider = new StreamMemoryBlockProvider(stream, imageStart: 0, imageSize: array.Length, isFileStream: true, leaveOpen: false))
+                    using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync))
                     {
-                        // large:
-                        using (var block = provider.GetMemoryBlock())
+                        Assert.True(FileStreamReadLightUp.IsFileStream(stream));
+
+                        using (var provider = new StreamMemoryBlockProvider(stream, imageStart: 0, imageSize: array.Length, isFileStream: true, leaveOpen: false))
                         {
-                            Assert.IsType<MemoryMappedFileBlock>(block);
-                            Assert.Equal(array.Length, block.Size);
-                            AssertEx.Equal(array, block.GetContent());
+                            // large:
+                            using (var block = provider.GetMemoryBlock())
+                            {
+                                Assert.IsType<MemoryMappedFileBlock>(block);
+                                Assert.Equal(array.Length, block.Size);
+                                Assert.Equal(array, block.GetContent());
+                            }
+
+                            // we didn't use the stream for reading
+                            Assert.Equal(0, stream.Position);
+
+                            // small:
+                            using (var block = provider.GetMemoryBlock(1, 2))
+                            {
+                                Assert.IsType<NativeHeapMemoryBlock>(block);
+                                Assert.Equal(2, block.Size);
+                                Assert.Equal(new byte[] { 0x12, 0x12 }, block.GetContent());
+                            }
+
+                            Assert.Equal(3, stream.Position);
                         }
 
-                        // we didn't use the stream for reading
-                        Assert.Equal(0, stream.Position);
-
-                        // small:
-                        using (var block = provider.GetMemoryBlock(1, 2))
-                        {
-                            Assert.IsType<NativeHeapMemoryBlock>(block);
-                            Assert.Equal(2, block.Size);
-                            AssertEx.Equal(new byte[] { 0x12, 0x12 }, block.GetContent());
-                        }
-
-                        Assert.Equal(3, stream.Position);
+                        Assert.Throws<ObjectDisposedException>(() => stream.Position);
                     }
-
-                    Assert.Throws<ObjectDisposedException>(() => stream.Position);
                 }
             }
             finally
